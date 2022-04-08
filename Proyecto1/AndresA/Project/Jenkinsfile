@@ -1,0 +1,48 @@
+def doLint(){
+	try {
+		sh ( script:"cd Proyecto1/AndresA/Project && pylint cosa.py --disable=all --enable=E,W,C0116 --reports=no module --output-format=parseable > pylint.log", returnStatus:true)
+		echo "ok"
+		def score = sh ( script: "cd Proyecto1/AndresA/Project && echo | python3 logParser.py",
+			returnStdout: true
+			).trim()
+		echo "score: ${score}"
+		float castedScore = Float.parseFloat(score)
+		return castedScore
+	} catch (Exception ex) {
+		echo "error in lint: ${ex}"
+		return 0
+	}
+	
+}
+
+pipeline {
+    agent any
+    stages {
+		stage('check') {
+            steps {
+				script {
+					score = doLint()
+					if (score >= 7){
+						echo 'lint ok'
+						sh (script:"rm Proyecto1/AndresA/Project/pylint.log")
+						if (env.CHANGE_ID) {
+							pullRequest.comment("Lint ok, got score of: ${score}")
+						}
+					} else {
+						if (env.CHANGE_ID) {
+							pullRequest.comment("Lint failed, got score of: ${score}. Check log for details")
+						}
+						echo "Lint failed, got score of: ${score}. Check log for details"
+						
+					}
+					
+				}
+            }
+        }
+		stage ('tests'){
+			steps{
+				echo 'CHANGE_ID: ' + env.CHANGE_ID
+			}
+		}
+    }
+}
